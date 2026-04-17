@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  name      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  pipelines Pipeline[]
+  jobs      Job[]
+  videos    Video[]
+}
+
+model Pipeline {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  genre       String
+  languages   String[] // JSON array stored as text
+  aiProvider  String   // Gemini, Anthropic, OpenAI
+  aiModel     String   // Specific model like Claude 3 Opus
+  schedule    String   // once, daily, weekly, monthly
+  enabled     Boolean  @default(true)
+  lastRunAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([userId])
+}
+
+model Job {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pipelineId    String?
+  pipeline      Pipeline?  @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  pipelineName  String
+  genre         String
+  language      String
+  status        String     // running, completed, failed, pending
+  progress      Int        @default(0)
+  error         String?
+  steps         Json?      // Array of step objects with status
+  logs          JobLog[]
+  videoId       String?
+  video         Video?     @relation(fields: [videoId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  completedAt   DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model JobLog {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  level     String   // info, warn, error, success
+  message   String
+  timestamp DateTime @default(now())
+
+  @@index([jobId])
+}
+
+model Video {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId       String?
+  jobs        Job[]
+  genre       String
+  title       String   // Title in selected language
+  titleEn     String   // Title in English
+  description String
+  url         String   // Path to video file
+  duration    Int?     // Duration in seconds
+  language    String
+  postedOn    String[] // youtube, instagram, facebook
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([genre])
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider  String   // gemini, anthropic, openai
+  keyValue  String   // Encrypted
+  createdAt DateTime @default(now())
+
+  @@unique([userId, provider])
+}
